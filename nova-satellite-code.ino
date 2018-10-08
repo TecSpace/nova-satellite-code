@@ -21,15 +21,17 @@ void debug(String str){
 }
 
 void initRadioSubsystem(){
-  debug("Starting radio subsystem");
+  debug("Radio: Starting subsystem");
  
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
 
-  while(!rf95.init()) {
-    debug("Radio subsystem init failed - halting");
+  if(!rf95.init()) {
+    debug("Radio: Subsystem init failed - halting");
     while(1) {;}
   }
+
+  debug("Radio: Module initialized");
 }
 
 void setup() {
