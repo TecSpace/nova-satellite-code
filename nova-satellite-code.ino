@@ -7,20 +7,37 @@
 
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
 
-void setup() {
+void debug(String str){
+  /*
+   * Prints a given message to serial in a friendly debug format, like this:
+   * [1.334] TX power increased to 23 dBm
+   * 
+   * @param str Message to print to Serial output
+   */
+  Serial.print("[");
+  Serial.print(millis()/1000.0, 3);
+  Serial.print("] ");
+  Serial.println(str);
+}
+
+void initRadioSubsystem(){
+  debug("Starting radio subsystem");
+ 
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
 
-  Serial.begin(115200);
-  Serial.println("Firmware init... please wait");
-
-  while (!rf95.init()) {
-    Serial.println("LoRa radio init failed");
-    while (1);
+  while(!rf95.init()) {
+    debug("Radio subsystem init failed - halting");
+    while(1) {;}
   }
 }
 
+void setup() {
+  Serial.begin(115200);
+  debug("Hello world! This is NOVA-1 waking up!");
+  initRadioSubsystem();
+}
+
 void loop() {
-  // put your main code here, to run repeatedly:
 
 }
