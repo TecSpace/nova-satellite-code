@@ -1,0 +1,6 @@
+{
+    "sketch": "nova-satellite-code.ino",
+    "board": "arduino:avr:pro",
+    "configuration": "cpu=16MHzatmega328",
+    "port": "/dev/ttyUSB0"
+}

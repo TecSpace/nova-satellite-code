@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "/home/emilio/.arduino15/packages/arduino/tools/**",
+                "/home/emilio/.arduino15/packages/arduino/hardware/avr/1.6.21/**",
+                "/home/emilio/Arduino/libraries/RadioHead",
+                "${workspaceFolder}/**"
+            ],
+            "forcedInclude": [
+                "/home/emilio/.arduino15/packages/arduino/hardware/avr/1.6.21/cores/arduino/Arduino.h"
+            ],
+            "intelliSenseMode": "gcc-x64",
+            "compilerPath": "/bin/clang",
+            "cStandard": "c11",
+            "cppStandard": "c++17"
+        }
+    ],
+    "version": 4
+}
