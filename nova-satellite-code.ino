@@ -10,7 +10,7 @@ RH_RF95 rf95(RFM95_CS, RFM95_INT);
 void debug(String str){
   /*
    * Prints a given message to serial in a friendly debug format, like this:
-   * [1.334] TX power increased to 23 dBm
+   * [1.334] Radio: TX power increased to 23 dBm
    * 
    * @param str Message to print to Serial output
    */
