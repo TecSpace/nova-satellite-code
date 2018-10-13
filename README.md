@@ -49,7 +49,7 @@ With 2^24 available packet numbers and assuming a packet update rate of 5Hz, the
 |:-------:|:-----:|
 | 0x03 - 0x06  | Time since boot|
 
-We also need a high resolution time reference to be able to locate important mission events in context. This allows us to say, for instance, that our balloon burst at exactly T+49:22.43, instead of only having packet 32810 as reference. 
+We also need a high resolution time reference to be able to locate important mission events in context. This allows us to say, for instance, that our balloon burst at exactly T+49:22.43.
 We allocated 32 bits to this function. Since we chose milliseconds as our unit, the counter would overflow 1193 hours into the mission, again, more than enough.
 
 |Addresses|Content|
