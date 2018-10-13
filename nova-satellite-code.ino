@@ -20,7 +20,7 @@ void debug(String str){
   Serial.println(str);
 }
 
-void initRadioSubsystem(){
+void initRadio(){
   debug("Radio: Starting subsystem");
  
   pinMode(RFM95_RST, OUTPUT);
@@ -34,10 +34,29 @@ void initRadioSubsystem(){
   debug("Radio: Module initialized");
 }
 
+void initPosition(){
+  debug("GPS: Starting subsystem");
+  debug("GPS: Module initialized");
+}
+
+void initIMU(){
+  debug("IMU: Starting subsystem");
+  debug("IMU: Module initialized");
+}
+
+void initDHT(){
+  debug("DHT: Starting subsystem");
+  debug("DHT: Module initialized");
+}
+
 void setup() {
   Serial.begin(115200);
   debug("Hello world! This is NOVA-1 waking up!");
-  initRadioSubsystem();
+  initRadio();
+  initPosition();
+  initIMU();
+  initDHT();
+  debug("All subsystems are go for launch.");
 }
 
 void loop() {
