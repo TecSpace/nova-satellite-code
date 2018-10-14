@@ -86,3 +86,30 @@ TODO
 | 0x10 - 0x11 | Magnetic declination GPS|
 
 TODO
+
+|Addresses|Content|
+|:-------:|:-----:|
+| 0x12 - 0x15 | Latitude GPS|
+| 0x16 - 0x19 | Longitude GPS|
+
+TODO
+
+|Addresses|Content|
+|:-------:|:-----:|
+| 0x1A - 0x1C | Altitude GPS|
+
+TODO
+
+|Addresses|Content|
+|:-------:|:-----:|
+| 0x1D - 0x1F | Speed GPS|
+
+TODO
+
+|Addresses|Content|
+|:-------:|:-----:|
+| 0x20 - 0x21[0:3] | Magnetometer X axis|
+| 0x21[4:7] - 0x22 | Magnetometer Y axis|
+| 0x23 - 0x24[0:3] | Magnetometer Z axis|
+
+TODO
