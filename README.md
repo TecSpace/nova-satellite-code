@@ -7,7 +7,7 @@ The main objectives of this packet format are efficiency and ease of packing and
 
 For simplicity, we only have one type of packet. It might be more efficient to have different types of packets that contain sensors with similar update rates, but in practice most of our sensors refresh at rates higher than our downlink rate. 
 
-Our only packet type has a size of 296 bits (37 bytes), and we send it every ≈363ms. That's approximately a 2.75Hz update rate, which is more than enough for our needs, since most of the telemetry data is informative and intended for post-mission analysis.
+Our only packet type has a size of 296 bits (37 bytes), and we send it every ≈363ms, which makes the bitrate 815.3 bps. That's approximately a 2.75Hz update rate, which is more than enough for our needs, since most of the telemetry data is informative and intended for post-mission analysis.
 
 Here's the breakdown:
 
