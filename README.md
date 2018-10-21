@@ -22,7 +22,6 @@ Here's the breakdown:
 |Acelerometer X axis|16|See datasheet|m/s²|
 |Acelerometer Y axis|16|See datasheet|m/s²|
 |Acelerometer Z axis|16|See datasheet|m/s²|
-|Magnetic declination GPS|16|Signed integer|1/100 °|
 |Latitude GPS|32|Signed integer|1/10⁵ °|
 |Longitude GPS|32|Signed integer|1/10⁵ °|
 |Altitude GPS|24|Unsigned integer|Centimeters|
@@ -30,8 +29,8 @@ Here's the breakdown:
 |Magnetometer X axis|12|See datasheet|Gauss|
 |Magnetometer Y axis|12|See datasheet|Gauss|
 |Magnetometer Z axis|12|See datasheet|Gauss|
-|Padding|4|
-|**TOTAL**|296|
+|Checksum|4|
+|**TOTAL**|280|
 
 ### Byte-by-byte breakdown
 |Addresses|Content|
@@ -111,5 +110,11 @@ TODO
 | 0x20 - 0x21[0:3] | Magnetometer X axis|
 | 0x21[4:7] - 0x22 | Magnetometer Y axis|
 | 0x23 - 0x24[0:3] | Magnetometer Z axis|
+
+TODO
+
+|Addresses|Content|
+|:-------:|:-----:|
+| 0x24[4:7] | Speed GPS|
 
 TODO

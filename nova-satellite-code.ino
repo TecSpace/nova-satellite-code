@@ -5,18 +5,34 @@
 #include <MPU6050.h>
 #include <BMP085.h>
 #include <HMC5883L.h>
+#include <NMEAGPS.h>
+#include <NeoSWSerial.h>
 
 #define RFM95_CS  10
 #define RFM95_RST 9
 #define RFM95_INT 2
 
+#define GPS_PORT_NAME "NeoSWSerial"
 
-RH_RF95  rf95(RFM95_CS, RFM95_INT);
+RH_RF95        rf95(RFM95_CS, RFM95_INT);
+NeoSWSerial    gpsPort(5, 4);
 MPU6050  mpu;
 BMP085   bmp;
 HMC5883L hmc;
+gps_fix  fix;
+static NMEAGPS gps;
 
-void debug(String str) {
+
+uint8_t packet[35] = {};
+uint16_t packet_ctr = 0;
+int16_t temperature, accX, accY, accZ;
+uint32_t pressure;
+
+const char* START_MODULE   = ": Starting module";
+const char* SUCCESS_MODULE = ": Module initialized";
+const char* FAILURE_MODULE = ": Could not initialize module";
+
+void debug(const char* str) {
   /*
    * Prints a given message to serial in a friendly debug format, like this:
    * [1.334] Radio: TX power increased to 23 dBm
@@ -29,23 +45,31 @@ void debug(String str) {
   Serial.println(str);
 }
 
+void moduleStatusMessage(const char* name, const char* msg){
+  debug(msg);
+}
+
 bool customSend(const uint8_t* data, uint8_t len) {
   if (len > 0xff)
 	return false;
 
-  rf95.waitPacketSent(); // Make sure we dont interrupt an outgoing message
-  rf95.setModeIdle();
+  rf95.waitPacketSent(); // Make sure we don't interrupt an outgoing message
+  rf95.setModeIdle(); //And we're off the air... 
 
-  rf95.spiWrite(RH_RF95_REG_0D_FIFO_ADDR_PTR, 0);
-  rf95.spiBurstWrite(RH_RF95_REG_00_FIFO, data, len);
-  rf95.spiWrite(RH_RF95_REG_22_PAYLOAD_LENGTH, len);
+  rf95.spiWrite(RH_RF95_REG_0D_FIFO_ADDR_PTR, 0); //Set the FIFO pointer to the start
+  rf95.spiBurstWrite(RH_RF95_REG_00_FIFO, data, len); //Write len bytes of data to the FIFO
+  rf95.spiWrite(RH_RF95_REG_22_PAYLOAD_LENGTH, len); //Set length
 
-  rf95.setModeTx();
+  rf95.setModeTx(); //*coughs into mic* is this thing on?
   return true;
 }
 
+void handleGPSChar(uint8_t c){
+  gps.handle(c);
+}
+
 void initRadio() {
-  debug("Radio: Starting module");
+  moduleStatusMessage("Radio", START_MODULE);
  
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
@@ -62,58 +86,118 @@ void initRadio() {
     debug("Radio:   Frequency: 915.00 MHz");
   }
 
-  rf95.spiWrite(0x1d, 0x77); //BW: 125 kHz, CR: 4/7, implicit header
-  rf95.spiWrite(0x1e, 0x90); //SF: 9, no CRC
-  rf95.spiWrite(0x26, 0x0c); //Mobile node, AGC on
-  rf95.setPreambleLength(6);
-  rf95.setTxPower(10, false);
+  rf95.spiWrite(0x1d, 0x79);  //BW: 125 kHz, CR: 4/8, implicit header
+  rf95.spiWrite(0x1e, 0xa0);  //SF: 10, no CRC
+  rf95.spiWrite(0x26, 0x0c);  //Mobile node, AGC on
+  rf95.setPreambleLength(6);  //Awful waste of air time, but whatever...
+  rf95.setTxPower(19, false); 
 
   debug("Radio:   BW: 125 kHz, CR: 4/7, SF: 9,  AGC: on, CRC: off");
   debug("Radio:   Preamble length: 6 symbols");
-  debug("Radio:   TX power: 10 dBm");
+  debug("Radio:   TX power: 19 dBm");
 
-  debug("Radio: Module initialized");
+  moduleStatusMessage("Radio", SUCCESS_MODULE);
 }
 
 void initPosition() {
-  debug("GPS: Starting module");
-  debug("GPS: Module initialized");
+  moduleStatusMessage("GPS", START_MODULE);
+
+  gpsPort.attachInterrupt(handleGPSChar);
+  gpsPort.begin(9600);
+  gps.send(&gpsPort, "$PMTK001,886,3");
+  gps.send(&gpsPort, "$PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0");
+
+  moduleStatusMessage("GPS", SUCCESS_MODULE);
 }
 
 void initMPU() {
-  debug("MPU: Starting module");
+  moduleStatusMessage("MPU", START_MODULE);
 
   mpu.initialize();
 
   if(mpu.testConnection()) {
-    debug("MPU: Module initialized");
+    moduleStatusMessage("MPU", SUCCESS_MODULE);
   } else {
-    debug("MPU: Could not initialize module");
+    moduleStatusMessage("MPU", FAILURE_MODULE);
   }
 }
 
 void initBMP() {
-  debug("BMP: Starting module");
+  moduleStatusMessage("BMP", START_MODULE);
 
   bmp.initialize();
 
   if(bmp.testConnection()) {
-    debug("BMP: Module initialized");
+    moduleStatusMessage("BMP", SUCCESS_MODULE);
   } else {
-    debug("BMP: Could not initialize module");
+    moduleStatusMessage("BMP", FAILURE_MODULE);
   }
 }
 
 void initHMC(){
-  debug("HMC: Starting module");
+  moduleStatusMessage("HMC", START_MODULE);
 
   hmc.initialize();
 
   if(hmc.testConnection()) {
-    debug("HMC: Module initialized");
+    moduleStatusMessage("HMC", SUCCESS_MODULE);
   } else {
-    debug("HMC: Could not initialize module");
+    moduleStatusMessage("HMC", FAILURE_MODULE);
   }
+}
+
+void sendMeasurementRequests(){
+  bmp.setControl(BMP085_MODE_TEMPERATURE);
+  temperature  = (int16_t) (bmp.getTemperatureC() * 10.0f);
+
+  bmp.setControl(BMP085_MODE_PRESSURE_3);
+  pressure = bmp.getRawPressure();
+
+  mpu.getAcceleration(&accX, &accY, &accZ);
+}
+
+void formPacket(uint8_t *packet){
+  packet_ctr++;
+  uint32_t time_boot = millis();
+  
+  packet[0] = packet_ctr;
+  packet[1] = packet_ctr >> 8;
+  packet[2] = time_boot;
+  packet[3] = time_boot >> 8;
+  packet[4] = time_boot >> 16;
+  packet[5] = temperature;
+  packet[6] = temperature >> 8;
+  packet[7] = pressure;
+  packet[8] = pressure >> 8;
+  packet[9] = pressure >> 16;
+  //insert gps alignment
+  packet[10] = accX;
+  packet[11] = accX >> 8;
+  packet[12] = accY;
+  packet[13] = accY >> 8;
+  packet[14] = accZ;
+  packet[15] = accZ >> 8;
+  packet[16] = fix.latitudeL();
+  packet[17] = fix.latitudeL() >> 8;
+  packet[18] = fix.latitudeL() >> 16;
+  packet[19] = fix.latitudeL() >> 24;
+  packet[20] = fix.longitudeL();
+  packet[21] = fix.longitudeL() >> 8;
+  packet[22] = fix.longitudeL() >> 16;
+  packet[23] = fix.longitudeL() >> 24;
+  packet[24] = fix.altitude_cm();
+  packet[25] = fix.altitude_cm() >> 8;
+  packet[26] = fix.altitude_cm() >> 16;
+  packet[27] = 0; //speed 8
+  packet[28] = 0; //speed 16
+  packet[29] = 0; //speed 24
+  packet[30] = 0; //magnetometer x8
+  packet[31] = 0; //magnetometer x4, y4
+  packet[32] = 0; //magnetometer y8
+  packet[33] = 0; //magnetometer y4, z4
+  packet[34] = 0; //magnetometer z4, checksum
+
+
 }
 
 void setup() {
@@ -128,20 +212,15 @@ void setup() {
   initHMC();
 
   debug("All modules are go for launch.");
+
+  sendMeasurementRequests();
 }
 
 void loop() {
-  uint32_t start = millis();
-  uint32_t counter = 0;
-  return;
-  while(1){
-    //customSend((uint8_t *)&packet, packet.length());
-    uint32_t elapsed = millis() - start;
-    Serial.print("Sent " + String(counter) + " bytes in ");
-    Serial.print(elapsed / 1000.0, 3);
-    Serial.print(" seconds (");
-    Serial.print(((counter-37)*8.0)/(elapsed/1000.0));
-    Serial.println(" bps)");
+  if(gps.available()){
+    fix = gps.read();
+    formPacket(packet);
+    customSend(packet, 35);
+    sendMeasurementRequests();
   }
-  
 }
