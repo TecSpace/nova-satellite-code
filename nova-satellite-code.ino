@@ -32,13 +32,7 @@ const char* START_MODULE   = ": Starting module";
 const char* SUCCESS_MODULE = ": Module initialized";
 const char* FAILURE_MODULE = ": Could not initialize module";
 
-void debug(const char* str) {
-  /*
-   * Prints a given message to serial in a friendly debug format, like this:
-   * [1.334] Radio: TX power increased to 23 dBm
-   * 
-   * @param str Message to print to Serial output
-   */
+void debug(const char* str){
   Serial.print("[");
   Serial.print(millis()/1000.0, 3);
   Serial.print("] ");
@@ -46,7 +40,12 @@ void debug(const char* str) {
 }
 
 void moduleStatusMessage(const char* name, const char* msg){
-  debug(msg);
+  Serial.print("[");
+  Serial.print(millis()/1000.0, 3);
+  Serial.print("] ");
+  Serial.print(name);
+  Serial.print(": ");
+  Serial.println(msg);
 }
 
 bool customSend(const uint8_t* data, uint8_t len) {
@@ -85,16 +84,16 @@ void initRadio() {
   } else {
     debug("Radio:   Frequency: 915.00 MHz");
   }
-
-  rf95.spiWrite(0x1d, 0x79);  //BW: 125 kHz, CR: 4/8, implicit header
-  rf95.spiWrite(0x1e, 0xa0);  //SF: 10, no CRC
-  rf95.spiWrite(0x26, 0x0c);  //Mobile node, AGC on
+  
+  rf95.spiWrite(0x1d, 0x39);  //BW: 125 kHz, CR: 4/8, implicit header
+  //rf95.spiWrite(0x1e, 0xa4);  //SF: 10, no CRC
+  //rf95.spiWrite(0x26, 0x0c);  //Mobile node, AGC on
   rf95.setPreambleLength(6);  //Awful waste of air time, but whatever...
-  rf95.setTxPower(19, false); 
+  rf95.setTxPower(12, false); 
 
-  debug("Radio:   BW: 125 kHz, CR: 4/7, SF: 9,  AGC: on, CRC: off");
+  debug("Radio:   BW: 125 kHz, CR: 4/8, SF: 10,  AGC: on, CRC: off");
   debug("Radio:   Preamble length: 6 symbols");
-  debug("Radio:   TX power: 19 dBm");
+  debug("Radio:   TX power: 12 dBm");
 
   moduleStatusMessage("Radio", SUCCESS_MODULE);
 }
@@ -112,6 +111,7 @@ void initPosition() {
 
 void initMPU() {
   moduleStatusMessage("MPU", START_MODULE);
+  return;
 
   mpu.initialize();
 
@@ -159,6 +159,7 @@ void sendMeasurementRequests(){
 void formPacket(uint8_t *packet){
   packet_ctr++;
   uint32_t time_boot = millis();
+  uint32_t speed     = (uint32_t) (fix.speed_kph() * 27.77777f);
   
   packet[0] = packet_ctr;
   packet[1] = packet_ctr >> 8;
@@ -170,7 +171,8 @@ void formPacket(uint8_t *packet){
   packet[7] = pressure;
   packet[8] = pressure >> 8;
   packet[9] = pressure >> 16;
-  //insert gps alignment
+  packet[9] |= fix.satellites << 4;
+  packet[9] |= fix.valid.location << 7;
   packet[10] = accX;
   packet[11] = accX >> 8;
   packet[12] = accY;
@@ -188,16 +190,15 @@ void formPacket(uint8_t *packet){
   packet[24] = fix.altitude_cm();
   packet[25] = fix.altitude_cm() >> 8;
   packet[26] = fix.altitude_cm() >> 16;
-  packet[27] = 0; //speed 8
-  packet[28] = 0; //speed 16
-  packet[29] = 0; //speed 24
+  packet[27] = speed;
+  packet[28] = speed >> 8;
+  packet[29] = speed >> 16;
   packet[30] = 0; //magnetometer x8
   packet[31] = 0; //magnetometer x4, y4
   packet[32] = 0; //magnetometer y8
   packet[33] = 0; //magnetometer y4, z4
   packet[34] = 0; //magnetometer z4, checksum
-
-
+  Serial.println(time_boot);
 }
 
 void setup() {
@@ -220,7 +221,7 @@ void loop() {
   if(gps.available()){
     fix = gps.read();
     formPacket(packet);
-    customSend(packet, 35);
+    rf95.send(packet, 35);
     sendMeasurementRequests();
   }
 }
