@@ -50,7 +50,7 @@ void moduleStatusMessage(const char* name, const char* msg){
 
 bool customSend(const uint8_t* data, uint8_t len) {
   if (len > 0xff)
-	return false;
+	  return false;
 
   rf95.waitPacketSent(); // Make sure we don't interrupt an outgoing message
   rf95.setModeIdle(); //And we're off the air... 
@@ -85,9 +85,9 @@ void initRadio() {
     debug("Radio:   Frequency: 915.00 MHz");
   }
   
-  rf95.spiWrite(0x1d, 0x39);  //BW: 125 kHz, CR: 4/8, implicit header
-  //rf95.spiWrite(0x1e, 0xa4);  //SF: 10, no CRC
-  //rf95.spiWrite(0x26, 0x0c);  //Mobile node, AGC on
+  rf95.spiWrite(0x1d, 0x68);  //BW: 31.25 kHz, CR: 4/8, implicit header
+  rf95.spiWrite(0x1e, 0x94);  //SF: 10
+  rf95.spiWrite(0x26, 0x04);  //TBD
   rf95.setPreambleLength(6);  //Awful waste of air time, but whatever...
   rf95.setTxPower(12, false); 
 
@@ -151,7 +151,7 @@ void sendMeasurementRequests(){
   temperature  = (int16_t) (bmp.getTemperatureC() * 10.0f);
 
   bmp.setControl(BMP085_MODE_PRESSURE_3);
-  pressure = bmp.getRawPressure();
+  pressure = bmp.getPressure();
 
   mpu.getAcceleration(&accX, &accY, &accZ);
 }
@@ -171,8 +171,6 @@ void formPacket(uint8_t *packet){
   packet[7] = pressure;
   packet[8] = pressure >> 8;
   packet[9] = pressure >> 16;
-  packet[9] |= fix.satellites << 4;
-  packet[9] |= fix.valid.location << 7;
   packet[10] = accX;
   packet[11] = accX >> 8;
   packet[12] = accY;
@@ -197,7 +195,9 @@ void formPacket(uint8_t *packet){
   packet[31] = 0; //magnetometer x4, y4
   packet[32] = 0; //magnetometer y8
   packet[33] = 0; //magnetometer y4, z4
-  packet[34] = 0; //magnetometer z4, checksum
+  packet[34] = 0; //magnetometer z4
+  packet[34] |= fix.satellites << 4;
+  packet[34] |= fix.valid.location << 7;
   Serial.println(time_boot);
 }
 
