@@ -32,21 +32,24 @@ const char* START_MODULE   = ": Starting module";
 const char* SUCCESS_MODULE = ": Module initialized";
 const char* FAILURE_MODULE = ": Could not initialize module";
 
-void debug(const char* str){
+void printTimeLead(){
   Serial.print("[");
   Serial.print(millis()/1000.0, 3);
   Serial.print("] ");
+}
+
+void debug(const char* str){
+  printTimeLead();
   Serial.println(str);
 }
 
 void moduleStatusMessage(const char* name, const char* msg){
-  Serial.print("[");
-  Serial.print(millis()/1000.0, 3);
-  Serial.print("] ");
+  printTimeLead();
   Serial.print(name);
   Serial.print(": ");
   Serial.println(msg);
 }
+
 
 bool customSend(const uint8_t* data, uint8_t len) {
   if (len > 0xff)
