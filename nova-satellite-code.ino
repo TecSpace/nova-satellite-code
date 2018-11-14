@@ -25,12 +25,12 @@ static NMEAGPS gps;
 
 uint8_t packet[35] = {};
 uint16_t packet_ctr = 0;
-int16_t temperature, accX, accY, accZ;
+int16_t temperature, accX, accY, accZ, mx, my, mz;
 uint32_t pressure;
 
-const char* START_MODULE   = ": Starting module";
-const char* SUCCESS_MODULE = ": Module initialized";
-const char* FAILURE_MODULE = ": Could not initialize module";
+const char* START_MODULE   = "Starting module";
+const char* SUCCESS_MODULE = "Module initialized";
+const char* FAILURE_MODULE = "Could not initialize module";
 
 void printTimeLead(){
   Serial.print("[");
@@ -48,22 +48,6 @@ void moduleStatusMessage(const char* name, const char* msg){
   Serial.print(name);
   Serial.print(": ");
   Serial.println(msg);
-}
-
-
-bool customSend(const uint8_t* data, uint8_t len) {
-  if (len > 0xff)
-	  return false;
-
-  rf95.waitPacketSent(); // Make sure we don't interrupt an outgoing message
-  rf95.setModeIdle(); //And we're off the air... 
-
-  rf95.spiWrite(RH_RF95_REG_0D_FIFO_ADDR_PTR, 0); //Set the FIFO pointer to the start
-  rf95.spiBurstWrite(RH_RF95_REG_00_FIFO, data, len); //Write len bytes of data to the FIFO
-  rf95.spiWrite(RH_RF95_REG_22_PAYLOAD_LENGTH, len); //Set length
-
-  rf95.setModeTx(); //*coughs into mic* is this thing on?
-  return true;
 }
 
 void handleGPSChar(uint8_t c){
@@ -88,15 +72,16 @@ void initRadio() {
     debug("Radio:   Frequency: 915.00 MHz");
   }
   
-  rf95.spiWrite(0x1d, 0x68);  //BW: 31.25 kHz, CR: 4/8, implicit header
-  rf95.spiWrite(0x1e, 0x94);  //SF: 10
-  rf95.spiWrite(0x26, 0x04);  //TBD
+  rf95.setModemConfig(2);
+  //rf95.spiWrite(0x1d, 0x78);  //BW: 125 kHz, CR: 4/8, implicit header
+  //rf95.spiWrite(0x1e, 0x94);  //SF: 10
+  //rf95.spiWrite(0x26, 0x04);  //TBD
   rf95.setPreambleLength(6);  //Awful waste of air time, but whatever...
-  rf95.setTxPower(12, false); 
+  rf95.setTxPower(15, false); 
 
   debug("Radio:   BW: 125 kHz, CR: 4/8, SF: 10,  AGC: on, CRC: off");
   debug("Radio:   Preamble length: 6 symbols");
-  debug("Radio:   TX power: 12 dBm");
+  debug("Radio:   TX power: 15 dBm");
 
   moduleStatusMessage("Radio", SUCCESS_MODULE);
 }
@@ -114,7 +99,6 @@ void initPosition() {
 
 void initMPU() {
   moduleStatusMessage("MPU", START_MODULE);
-  return;
 
   mpu.initialize();
 
@@ -163,6 +147,7 @@ void formPacket(uint8_t *packet){
   packet_ctr++;
   uint32_t time_boot = millis();
   uint32_t speed     = (uint32_t) (fix.speed_kph() * 27.77777f);
+  hmc.getHeading(&mx, &my, &mz);
   
   packet[0] = packet_ctr;
   packet[1] = packet_ctr >> 8;
@@ -194,11 +179,11 @@ void formPacket(uint8_t *packet){
   packet[27] = speed;
   packet[28] = speed >> 8;
   packet[29] = speed >> 16;
-  packet[30] = 0; //magnetometer x8
-  packet[31] = 0; //magnetometer x4, y4
-  packet[32] = 0; //magnetometer y8
-  packet[33] = 0; //magnetometer y4, z4
-  packet[34] = 0; //magnetometer z4
+  packet[30] = 0;
+  packet[31] = 0;
+  packet[32] = 0;
+  packet[33] = 0;
+  packet[34] = 0;
   packet[34] |= fix.satellites << 4;
   packet[34] |= fix.valid.location << 7;
   Serial.println(time_boot);
@@ -213,7 +198,7 @@ void setup() {
   initPosition();
   initMPU();
   initBMP();
-  initHMC();
+  //initHMC();
 
   debug("All modules are go for launch.");
 
