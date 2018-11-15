@@ -2,9 +2,10 @@
 #include <SPI.h>
 
 #include <Wire.h>
-#include <MPU6050.h>
-#include <BMP085.h>
-#include <HMC5883L.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_HMC5883_U.h>
+#include <Adafruit_BMP085_U.h>
+#include <DHT_U.h>
 #include <NMEAGPS.h>
 #include <NeoSWSerial.h>
 
@@ -16,9 +17,6 @@
 
 RH_RF95        rf95(RFM95_CS, RFM95_INT);
 NeoSWSerial    gpsPort(5, 4);
-MPU6050  mpu;
-BMP085   bmp;
-HMC5883L hmc;
 gps_fix  fix;
 static NMEAGPS gps;
 
@@ -27,6 +25,7 @@ uint8_t packet[35] = {};
 uint16_t packet_ctr = 0;
 int16_t temperature, accX, accY, accZ, mx, my, mz;
 uint32_t pressure;
+uint32_t lastPacketSent = 0;
 
 const char* START_MODULE   = "Starting module";
 const char* SUCCESS_MODULE = "Module initialized";
@@ -77,11 +76,11 @@ void initRadio() {
   //rf95.spiWrite(0x1e, 0x94);  //SF: 10
   //rf95.spiWrite(0x26, 0x04);  //TBD
   rf95.setPreambleLength(6);  //Awful waste of air time, but whatever...
-  rf95.setTxPower(15, false); 
+  rf95.setTxPower(23, false); 
 
-  debug("Radio:   BW: 125 kHz, CR: 4/8, SF: 10,  AGC: on, CRC: off");
+  debug("Radio:   BW: 32.5 kHz, CR: 4/8, SF: 9,  AGC: on, CRC: on");
   debug("Radio:   Preamble length: 6 symbols");
-  debug("Radio:   TX power: 15 dBm");
+  debug("Radio:   TX power: 23 dBm");
 
   moduleStatusMessage("Radio", SUCCESS_MODULE);
 }
@@ -97,96 +96,32 @@ void initPosition() {
   moduleStatusMessage("GPS", SUCCESS_MODULE);
 }
 
-void initMPU() {
-  moduleStatusMessage("MPU", START_MODULE);
-
-  mpu.initialize();
-
-  if(mpu.testConnection()) {
-    moduleStatusMessage("MPU", SUCCESS_MODULE);
-  } else {
-    moduleStatusMessage("MPU", FAILURE_MODULE);
-  }
-}
-
-void initBMP() {
-  moduleStatusMessage("BMP", START_MODULE);
-
-  bmp.initialize();
-
-  if(bmp.testConnection()) {
-    moduleStatusMessage("BMP", SUCCESS_MODULE);
-  } else {
-    moduleStatusMessage("BMP", FAILURE_MODULE);
-  }
-}
-
-void initHMC(){
-  moduleStatusMessage("HMC", START_MODULE);
-
-  hmc.initialize();
-
-  if(hmc.testConnection()) {
-    moduleStatusMessage("HMC", SUCCESS_MODULE);
-  } else {
-    moduleStatusMessage("HMC", FAILURE_MODULE);
-  }
-}
-
-void sendMeasurementRequests(){
-  bmp.setControl(BMP085_MODE_TEMPERATURE);
-  temperature  = (int16_t) (bmp.getTemperatureC() * 10.0f);
-
-  bmp.setControl(BMP085_MODE_PRESSURE_3);
-  pressure = bmp.getPressure();
-
-  mpu.getAcceleration(&accX, &accY, &accZ);
-}
-
 void formPacket(uint8_t *packet){
   packet_ctr++;
   uint32_t time_boot = millis();
   uint32_t speed     = (uint32_t) (fix.speed_kph() * 27.77777f);
-  hmc.getHeading(&mx, &my, &mz);
   
   packet[0] = packet_ctr;
   packet[1] = packet_ctr >> 8;
   packet[2] = time_boot;
   packet[3] = time_boot >> 8;
   packet[4] = time_boot >> 16;
-  packet[5] = temperature;
-  packet[6] = temperature >> 8;
-  packet[7] = pressure;
-  packet[8] = pressure >> 8;
-  packet[9] = pressure >> 16;
-  packet[10] = accX;
-  packet[11] = accX >> 8;
-  packet[12] = accY;
-  packet[13] = accY >> 8;
-  packet[14] = accZ;
-  packet[15] = accZ >> 8;
-  packet[16] = fix.latitudeL();
-  packet[17] = fix.latitudeL() >> 8;
-  packet[18] = fix.latitudeL() >> 16;
-  packet[19] = fix.latitudeL() >> 24;
-  packet[20] = fix.longitudeL();
-  packet[21] = fix.longitudeL() >> 8;
-  packet[22] = fix.longitudeL() >> 16;
-  packet[23] = fix.longitudeL() >> 24;
-  packet[24] = fix.altitude_cm();
-  packet[25] = fix.altitude_cm() >> 8;
-  packet[26] = fix.altitude_cm() >> 16;
-  packet[27] = speed;
-  packet[28] = speed >> 8;
-  packet[29] = speed >> 16;
-  packet[30] = 0;
-  packet[31] = 0;
-  packet[32] = 0;
-  packet[33] = 0;
-  packet[34] = 0;
-  packet[34] |= fix.satellites << 4;
-  packet[34] |= fix.valid.location << 7;
-  Serial.println(time_boot);
+  packet[5] = fix.latitudeL();
+  packet[6] = fix.latitudeL() >> 8;
+  packet[7] = fix.latitudeL() >> 16;
+  packet[8] = fix.latitudeL() >> 24;
+  packet[9] = fix.longitudeL();
+  packet[10] = fix.longitudeL() >> 8;
+  packet[11] = fix.longitudeL() >> 16;
+  packet[12] = fix.longitudeL() >> 24;
+  packet[13] = fix.altitude_cm();
+  packet[14] = fix.altitude_cm() >> 8;
+  packet[15] = fix.altitude_cm() >> 16;
+  packet[16] = speed;
+  packet[17] = speed >> 8;
+  packet[18] = speed >> 16;
+  packet[19] |= fix.satellites << 4;
+  packet[19] |= fix.valid.location << 7;
 }
 
 void setup() {
@@ -196,20 +131,16 @@ void setup() {
 
   initRadio();
   initPosition();
-  initMPU();
-  initBMP();
-  //initHMC();
 
   debug("All modules are go for launch.");
-
-  sendMeasurementRequests();
 }
 
 void loop() {
   if(gps.available()){
     fix = gps.read();
     formPacket(packet);
-    rf95.send(packet, 35);
-    sendMeasurementRequests();
+    rf95.send(packet, 20);
+    debug("Packet sent");
+    delay(3000);
   }
 }
